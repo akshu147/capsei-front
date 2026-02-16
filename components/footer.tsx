@@ -73,10 +73,10 @@ export function Footer() {
         <div className="mt-16 pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">© 2026 NexusAI. All rights reserved.</p>
           <div className="flex items-center gap-6">
-            <Link href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Privacy Policy
             </Link>
-            <Link href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/term" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Terms of Service
             </Link>
           </div>
