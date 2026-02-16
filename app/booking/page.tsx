@@ -286,6 +286,7 @@ function BookingPageContent () {
         drop_PlaceId: dropoff.place_id,
         serviceType: service
       }
+      // f
 
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/ride/calculate-price`,
