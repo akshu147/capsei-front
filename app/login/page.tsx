@@ -116,7 +116,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/user/userlogin`, {
         email,
         password
-      })
+      },  { withCredentials: true })
 
       if (res.status === 200) {
         toast.success('Login successful 🎉')

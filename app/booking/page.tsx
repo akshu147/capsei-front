@@ -289,7 +289,7 @@ function BookingPageContent () {
 
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/ride/calculate-price`,
-        detail
+        detail,  { withCredentials: true }
       )
       console.log(res)
 
