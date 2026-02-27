@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import Cookies from 'js-cookie'
 import {
   Card,
   CardContent,
@@ -39,302 +40,20 @@ import {
   Star,
   TrendingUp
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
-// const vehicleTypes = [
-//   { id: "bike", name: "Bike Taxi", icon: Bike, description: "Two-wheeler for bike taxi" },
-//   { id: "hatchback", name: "Hatchback", icon: Car, description: "Compact car rides" },
-//   { id: "sedan", name: "Sedan", icon: Car, description: "Standard car rides" },
-//   { id: "suv", name: "SUV", icon: Car, description: "Premium larger vehicle" },
-//   { id: "pickup", name: "Pickup Truck", icon: Truck, description: "Small cargo vehicle" },
-//   { id: "tempo", name: "Tempo", icon: Truck, description: "Medium cargo vehicle" },
-// ]
 const vehicleTypes = [
-  {
-    id: 'bike',
-    name: 'Bike',
-    icon: Bike,
-    description: 'Two-wheeler for bike taxi'
-  },
-  {
-    id: 'electric_bike',
-    name: 'Electric Bike',
-    icon: Bike,
-    description: 'Eco-friendly bike rides'
-  },
-  {
-    id: 'scooter',
-    name: 'Scooter',
-    icon: Bike,
-    description: 'Gearless two-wheeler rides'
-  },
-  {
-    id: 'delivery_bike',
-    name: 'Delivery Bike',
-    icon: Bike,
-    description: 'Two-wheeler for deliveries'
-  },
-  {
-    id: 'sports_bike',
-    name: 'Sports Bike',
-    icon: Bike,
-    description: 'High power two-wheeler'
-  },
-
-  {
-    id: 'auto',
-    name: 'Auto Rickshaw',
-    icon: Truck,
-    description: 'Three-wheeler passenger rides'
-  },
-  {
-    id: 'electric_auto',
-    name: 'Electric Auto',
-    icon: Truck,
-    description: 'Electric three-wheeler'
-  },
-  {
-    id: 'cargo_auto',
-    name: 'Cargo Auto',
-    icon: Truck,
-    description: 'Small cargo transport'
-  },
-
-  {
-    id: 'hatchback',
-    name: 'Hatchback',
-    icon: Car,
-    description: 'Compact car rides'
-  },
-  {
-    id: 'premium_hatchback',
-    name: 'Premium Hatchback',
-    icon: Car,
-    description: 'Premium compact car rides'
-  },
-
-  { id: 'sedan', name: 'Sedan', icon: Car, description: 'Standard car rides' },
-  {
-    id: 'premium_sedan',
-    name: 'Premium Sedan',
-    icon: Car,
-    description: 'Premium sedan rides'
-  },
-  {
-    id: 'luxury_sedan',
-    name: 'Luxury Sedan',
-    icon: Car,
-    description: 'Luxury class car rides'
-  },
-
-  {
-    id: 'compact_suv',
-    name: 'Compact SUV',
-    icon: Car,
-    description: 'Small SUV rides'
-  },
-  { id: 'suv', name: 'SUV', icon: Car, description: 'Premium larger vehicle' },
-  {
-    id: 'full_suv',
-    name: 'Full Size SUV',
-    icon: Car,
-    description: 'Large SUV rides'
-  },
-  {
-    id: 'luxury_suv',
-    name: 'Luxury SUV',
-    icon: Car,
-    description: 'Luxury SUV rides'
-  },
-
-  {
-    id: 'muv_6',
-    name: '6 Seater MUV',
-    icon: Car,
-    description: '6 seater family vehicle'
-  },
-  {
-    id: 'muv_7',
-    name: '7 Seater MUV',
-    icon: Car,
-    description: '7 seater family vehicle'
-  },
-  {
-    id: 'muv_8',
-    name: '8 Seater MUV',
-    icon: Car,
-    description: '8 seater passenger vehicle'
-  },
-
-  {
-    id: 'taxi_city',
-    name: 'City Taxi',
-    icon: Car,
-    description: 'Local city rides'
-  },
-  {
-    id: 'taxi_outstation',
-    name: 'Outstation Taxi',
-    icon: Car,
-    description: 'Intercity travel rides'
-  },
-  {
-    id: 'taxi_airport',
-    name: 'Airport Taxi',
-    icon: Car,
-    description: 'Airport pickup & drop'
-  },
-  {
-    id: 'taxi_rental',
-    name: 'Rental Taxi',
-    icon: Car,
-    description: 'Hourly rental service'
-  },
-
-  {
-    id: 'van_passenger',
-    name: 'Passenger Van',
-    icon: Truck,
-    description: 'Passenger transport van'
-  },
-  {
-    id: 'van_cargo',
-    name: 'Cargo Van',
-    icon: Truck,
-    description: 'Goods transport van'
-  },
-
-  {
-    id: 'pickup_small',
-    name: 'Small Pickup',
-    icon: Truck,
-    description: 'Small cargo pickup'
-  },
-  {
-    id: 'pickup',
-    name: 'Pickup Truck',
-    icon: Truck,
-    description: 'Small cargo vehicle'
-  },
-  {
-    id: 'pickup_large',
-    name: 'Large Pickup',
-    icon: Truck,
-    description: 'Large cargo pickup truck'
-  },
-
-  {
-    id: 'mini_truck',
-    name: 'Mini Truck',
-    icon: Truck,
-    description: 'Mini goods transport truck'
-  },
-  {
-    id: 'tata_ace',
-    name: 'Tata Ace',
-    icon: Truck,
-    description: 'Light commercial vehicle'
-  },
-  {
-    id: 'dost',
-    name: 'Ashok Leyland Dost',
-    icon: Truck,
-    description: 'Light goods carrier'
-  },
-
-  {
-    id: 'tempo',
-    name: 'Tempo',
-    icon: Truck,
-    description: 'Medium cargo vehicle'
-  },
-  {
-    id: 'tempo_407',
-    name: 'Tempo 407',
-    icon: Truck,
-    description: 'Medium commercial vehicle'
-  },
-  {
-    id: 'tempo_traveller',
-    name: 'Tempo Traveller',
-    icon: Truck,
-    description: 'Passenger traveller vehicle'
-  },
-
-  {
-    id: 'traveller_9',
-    name: 'Traveller 9 Seater',
-    icon: Truck,
-    description: '9 seater traveller'
-  },
-  {
-    id: 'traveller_12',
-    name: 'Traveller 12 Seater',
-    icon: Truck,
-    description: '12 seater traveller'
-  },
-  {
-    id: 'traveller_17',
-    name: 'Traveller 17 Seater',
-    icon: Truck,
-    description: '17 seater traveller'
-  },
-
-  {
-    id: 'truck_small',
-    name: 'Small Truck',
-    icon: Truck,
-    description: 'Small goods transport truck'
-  },
-  {
-    id: 'truck_6_wheeler',
-    name: '6 Wheeler Truck',
-    icon: Truck,
-    description: 'Heavy goods transport'
-  },
-  {
-    id: 'truck_10_wheeler',
-    name: '10 Wheeler Truck',
-    icon: Truck,
-    description: 'Large goods transport'
-  },
-  {
-    id: 'truck_container',
-    name: 'Container Truck',
-    icon: Truck,
-    description: 'Container transport vehicle'
-  },
-
-  {
-    id: 'tow_truck',
-    name: 'Tow Truck',
-    icon: Truck,
-    description: 'Vehicle towing service'
-  },
-  {
-    id: 'water_tanker',
-    name: 'Water Tanker',
-    icon: Truck,
-    description: 'Water supply vehicle'
-  },
-  {
-    id: 'ambulance',
-    name: 'Ambulance',
-    icon: Truck,
-    description: 'Medical emergency vehicle'
-  },
-  {
-    id: 'school_bus',
-    name: 'School Bus',
-    icon: Truck,
-    description: 'Student transport bus'
-  },
-  {
-    id: 'staff_bus',
-    name: 'Staff Bus',
-    icon: Truck,
-    description: 'Office staff transport bus'
-  }
-]
+  { id: 'bike', name: 'Bike', icon: Bike },
+  { id: 'auto', name: 'Auto Rickshaw', icon: Truck },
+  { id: 'car', name: 'Car', icon: Car },
+  { id: 'van', name: 'Van', icon: Truck },
+  { id: 'pickup', name: 'Pickup / Light Truck', icon: Truck },
+  { id: 'truck', name: 'Truck', icon: Truck },
+  { id: 'tow_truck', name: 'Tow Truck', icon: Truck },
+  { id: 'water_tanker', name: 'Water Tanker', icon: Truck },
+  { id: 'ambulance', name: 'Ambulance', icon: Truck },
+  { id: 'bus', name: 'Bus', icon: Truck }
+];
 
 const documents = [
   {
@@ -402,10 +121,23 @@ export default function DriverPage () {
   const [activeTab, setActiveTab] = useState('register')
   const [step, setStep] = useState(1)
   const [vehicleType, setVehicleType] = useState('')
+   const [authorized, setAuthorized] = useState(false)
+   const router = useRouter()
 
   const documentProgress = documents.filter(d => d.status === 'verified').length
   const totalDocuments = documents.length
   const progressPercentage = (documentProgress / totalDocuments) * 100
+
+   useEffect(() => {
+    const token = Cookies.get('driverToken')
+
+    if (!token) {
+      router.replace('/register') // replace use karo taaki back pe wapas na aaye
+    } else {
+      setAuthorized(true)
+    }
+  }, [router])
+  if (!authorized) return null 
 
   return (
     <div className='min-h-screen bg-background'>
@@ -499,68 +231,12 @@ export default function DriverPage () {
                           Complete all steps to start earning
                         </CardDescription>
                       </div>
-                      <Badge variant='outline'>Step {step} of 3</Badge>
+                      <Badge variant='outline'>Step {step} of 2</Badge>
                     </div>
-                    <Progress value={step * 33.33} className='mt-4' />
+                    <Progress value={step * 50} className='mt-4' />
                   </CardHeader>
                   <CardContent className='space-y-6'>
                     {step === 1 && (
-                      <div className='space-y-4'>
-                        <div className='grid gap-4 sm:grid-cols-2'>
-                          <div className='space-y-2'>
-                            <Label htmlFor='firstName'>First Name</Label>
-                            <Input
-                              id='firstName'
-                              placeholder='John'
-                              className='bg-input'
-                            />
-                          </div>
-                          <div className='space-y-2'>
-                            <Label htmlFor='lastName'>Last Name</Label>
-                            <Input
-                              id='lastName'
-                              placeholder='Doe'
-                              className='bg-input'
-                            />
-                          </div>
-                        </div>
-                        <div className='space-y-2'>
-                          <Label htmlFor='email'>Email</Label>
-                          <Input
-                            id='email'
-                            type='email'
-                            placeholder='john@example.com'
-                            className='bg-input'
-                          />
-                        </div>
-                        <div className='space-y-2'>
-                          <Label htmlFor='phone'>Phone Number</Label>
-                          <Input
-                            id='phone'
-                            type='tel'
-                            placeholder='+1 (555) 000-0000'
-                            className='bg-input'
-                          />
-                        </div>
-                        <div className='space-y-2'>
-                          <Label htmlFor='city'>City</Label>
-                          <Select>
-                            <SelectTrigger className='bg-input'>
-                              <SelectValue placeholder='Select your city' />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value='nyc'>New York</SelectItem>
-                              <SelectItem value='la'>Los Angeles</SelectItem>
-                              <SelectItem value='chicago'>Chicago</SelectItem>
-                              <SelectItem value='houston'>Houston</SelectItem>
-                              <SelectItem value='phoenix'>Phoenix</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    )}
-
-                    {step === 2 && (
                       <div className='space-y-4'>
                         <div className='space-y-2'>
                           <Label>Select Vehicle Type</Label>
@@ -607,7 +283,7 @@ export default function DriverPage () {
                       </div>
                     )}
 
-                    {step === 3 && (
+                    {step === 2 && (
                       <div className='space-y-4'>
                         <div className='space-y-2'>
                           <Label>Upload Documents</Label>
@@ -657,7 +333,7 @@ export default function DriverPage () {
                           Previous
                         </Button>
                       )}
-                      {step < 3 ? (
+                      {step < 2 ? (
                         <Button
                           onClick={() => setStep(step + 1)}
                           className='flex-1'
@@ -668,7 +344,6 @@ export default function DriverPage () {
                         <Button
                           className='flex-1'
                           onClick={() => {
-                            setStep(3)
                             setActiveTab('dashboard')
                           }}
                         >

@@ -203,10 +203,10 @@ const logoname = (usercookiedata?.name?.[0] || '').toUpperCase();
           <Link href='/' className='flex items-center gap-2'>
             <div className='flex h-9 w-9 items-center justify-center rounded-lg bg-primary'>
               <span className='text-lg font-bold text-primary-foreground'>
-                M
+                C
               </span>
             </div>
-            <span className='text-xl font-semibold'>MoveX</span>
+            <span className='text-xl font-semibold'>Capsei</span>
           </Link>
         </div>
 

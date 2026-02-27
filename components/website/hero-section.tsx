@@ -26,7 +26,7 @@ export function HeroSection () {
         router.push('/login')
       }
     } catch (err) {
-      console.log('something wern wrong', err.message)
+      console.log('something wern wrong', err instanceof Error ? err.message : String(err))
     }
   }
 

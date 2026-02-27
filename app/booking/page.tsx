@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Calendar } from '@/components/ui/calendar'
+import Cookies from 'js-cookie'
 import {
   Popover,
   PopoverContent,
@@ -20,6 +21,7 @@ import {
 import {
   Bike,
   Car,
+  Loader2,
   Truck,
   Package,
   MapPin,
@@ -38,6 +40,8 @@ import { useRouter } from 'next/navigation'
 import { getExactCurrentLocation } from '@/components/Getcurrentlocationfunction'
 import { getAddressAutocomplete } from '@/components/Autocompletelocation'
 import axios from 'axios'
+import { useLoadScript } from '@react-google-maps/api'
+import { Duru_Sans } from 'next/font/google'
 
 type ServiceType = 'bike' | 'car' | 'loading' | 'parcel'
 
@@ -188,18 +192,26 @@ const vehicleOptions: Record<ServiceType, VehicleOption[]> = {
 // ]
 
 function BookingPageContent () {
+  const { isLoaded, loadError } = useLoadScript({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY!,
+    libraries: ['places']
+  })
   const [service, setService] = useState<ServiceType>('car')
   const [selectedVehicle, setSelectedVehicle] = useState<string>('sedan')
   const [scheduleType, setScheduleType] = useState<'now' | 'later'>('now')
   const [scheduledDate, setScheduledDate] = useState<Date | undefined>()
   const [showPickupSuggestions, setShowPickupSuggestions] = useState(false)
+  const [findingDriver, setFindingDriver] = useState(false)
+  const [userupcomingdata, setuserupcomingdata] = useState({})
   const [showDropoffSuggestions, setShowDropoffSuggestions] = useState(false)
   const currentVehicles = vehicleOptions[service]
   const selectedVehicleData =
     currentVehicles.find(v => v.id === selectedVehicle) || currentVehicles[0]
   const ifuserexiist = useSelector((state: any) => state.userExist.value)
   const [checkingAuth, setCheckingAuth] = useState(true)
-  const [pickupsuggestion, setpickupsuggestion] = useState<PlaceSuggestion[]>([])
+  const [pickupsuggestion, setpickupsuggestion] = useState<PlaceSuggestion[]>(
+    []
+  )
   const [dropsuggestion, setdropsuggestion] = useState<PlaceSuggestion[]>([])
   // const [onlysuggestion, setsuggestion] = useState([])
   const [pickup, setPickup] = useState<{
@@ -232,49 +244,65 @@ function BookingPageContent () {
   // get current location
   async function handleGetLocation () {
     try {
-      const loc = await getExactCurrentLocation() as { lat: number; lng: number }
-      const res = await axios.get(
-        `https://maps.googleapis.com/maps/api/geocode/json`,
-        {
-          params: {
-            latlng: `${loc.lat},${loc.lng}`,
-            key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
-          }
-        }
+      // 1️⃣ Browser se GPS lo
+      const loc = (await getExactCurrentLocation()) as {
+        lat: number
+        lng: number
+      }
+
+      // 2️⃣ Backend ko bhejo
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/places/reverse-geocode`,
+        { lat: loc.lat, lng: loc.lng },
+        { withCredentials: true }
       )
 
-      const result = res.data.results[0]
-
+      // 3️⃣ Backend se address lo
       setPickup({
-        label: result.formatted_address,
-        place_id: result.place_id
+        label: res.data.address,
+        place_id: 'current_location'
       })
     } catch (err) {
-      console.error(err)
+      console.error('Location Error:', err)
     }
   }
 
   useEffect(() => {
-    if (!pickup) return
+    if (!pickup?.label || pickup.label.length < 3) {
+      setpickupsuggestion([])
+      return
+    }
 
     const timeout = setTimeout(async () => {
-      const data = await getAddressAutocomplete(pickup.label)
-      setpickupsuggestion(data)
+      try {
+        const data = await getAddressAutocomplete(pickup.label)
+        setpickupsuggestion(data)
+        console.log(data)
+      } catch (err) {
+        console.error('Pickup autocomplete error:', err)
+      }
     }, 400)
 
     return () => clearTimeout(timeout)
-  }, [pickup])
+  }, [pickup?.label])
 
   useEffect(() => {
-    if (!dropoff) return
+    if (!dropoff?.label || dropoff.label.length < 3) {
+      setdropsuggestion([])
+      return
+    }
 
     const timeout = setTimeout(async () => {
-      const data = await getAddressAutocomplete(dropoff.label)
-      setdropsuggestion(data)
+      try {
+        const data = await getAddressAutocomplete(dropoff.label)
+        setdropsuggestion(data)
+      } catch (err) {
+        console.error('Dropoff autocomplete error:', err)
+      }
     }, 400)
 
     return () => clearTimeout(timeout)
-  }, [dropoff])
+  }, [dropoff?.label])
 
   const getprices = async () => {
     if (!pickup?.place_id || !dropoff?.place_id) return
@@ -290,10 +318,10 @@ function BookingPageContent () {
 
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/ride/calculate-price`,
-        detail,  { withCredentials: true }
+        detail,
+        { withCredentials: true }
       )
-      console.log(res)
-
+      setuserupcomingdata(res.data) //userupcoming data
       // backend se aane wale vehicles ko RadioGroup ke liye map karte hain
       const vehiclesData = res.data.vehicles.map((v: any) => {
         const defaultOption = vehicleOptions[service].find(
@@ -326,25 +354,78 @@ function BookingPageContent () {
   }
 
   useEffect(() => {
-    if (dropoff) {
+    if (pickup && dropoff) {
       getprices()
     }
   }, [service, pickup, dropoff])
 
-  // useEffect(() => {
-  //   if (pickup && dropoff) {
-  //     getprices()
-  //   }
-  // }, [pickup, dropoff, selectedVehicle])
+  const bookridefunction = async () => {
+    if (findingDriver) return // double click prevent
 
-  // const aookride = async()=> {
-  //   try {
+    if (!pickup?.place_id || !dropoff?.place_id) {
+      alert('Pickup & Drop-off locations required')
+      return
+    }
 
-  //   }
-  //   catch(err){
-  //     console.log("something went wrong")
-  //   }
-  // }
+    const selectedVehicleInfo = thecurrentVehicles.find(
+      v => v.id === selectedVehicle
+    )
+
+    if (!selectedVehicleInfo?.total) {
+      alert('Please select a valid vehicle')
+      return
+    }
+
+    try {
+      setFindingDriver(true)
+
+      const bookingData = {
+        pickupPlaceId: pickup.place_id,
+        dropoffPlaceId: dropoff.place_id,
+
+        // 👇 backend ne jo lat lng diya tha wo bhi bhej do
+        pickupLat: userupcomingdata?.pickup?.lat,
+        pickupLng: userupcomingdata?.pickup?.lng,
+        dropoffLat: userupcomingdata?.dropoff?.lat,
+        dropoffLng: userupcomingdata?.dropoff?.lng,
+        distanceKm: fareData?.distance_km,
+        durationMin: fareData?.duration_min,
+        serviceType: service,
+        vehicleType: selectedVehicle,
+        scheduleType,
+        scheduledTime: scheduleType === 'later' ? scheduledDate : null,
+
+        // 👇 Fare breakdown bhejna better hai
+        fare: {
+          total: selectedVehicleInfo.total,
+          baseFare: selectedVehicleInfo.baseFare,
+          distanceFare: selectedVehicleInfo.distanceFare,
+          platformFee: selectedVehicleInfo.platformFee
+        }
+      }
+
+      const token = Cookies.get("token")
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/ride/book-ride`,
+        bookingData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}` // <-- ye backend ke authMiddleware ke liye zaruri hai
+          }
+        }
+      )
+
+      console.log('Booking confirmed:', res.data)
+
+      // ✅ Redirect after success
+      // router.push(`/booking/${res.data.bookingId}`)
+    } catch (err: any) {
+      console.error('Booking failed:', err.response?.data || err.message)
+      alert('Booking failed, try again!')
+    } finally {
+      setFindingDriver(false) // ✅ always stop loading
+    }
+  }
 
   return (
     <div className='min-h-screen bg-background'>
@@ -376,8 +457,8 @@ function BookingPageContent () {
         </div>
       </header>
 
-      <div className='flex min-h-screen pt-24'>
-        <aside className='hidden w-120 shrink-0 border-r border-border bg-card p-6 lg:block xl:w-130'>
+      <div className='min-h-screen pt-24'>
+        <aside className=' border-r border-border bg-card p-6 sm:px-[30px] md:px-[50px] lg:px-[70px] xl:px-[100px] 2xl:px-[150px]'>
           <div className='space-y-6'>
             <div>
               <h1 className='text-2xl font-bold'>Book a Ride</h1>
@@ -400,6 +481,7 @@ function BookingPageContent () {
                   <Input
                     id='pickup'
                     placeholder='Enter pickup location'
+                    autoComplete='off'
                     value={pickup?.label || ''}
                     onChange={e =>
                       setPickup({
@@ -421,15 +503,99 @@ function BookingPageContent () {
                     <Navigation className='h-4 w-4' />
                   </Button>
                 </div>
-                <Button
-                  onClick={() => {
-                    handleGetLocation()
-                    setScheduleType('now')
-                  }}
-                >
-                  <MapPin className='mr-2 h-4 w-100' />
-                  Use Current Location
-                </Button>
+                <div className='flex justify-between gap-[10px]'>
+                  <Button
+                    onClick={() => {
+                      handleGetLocation()
+                      setScheduleType('now')
+                    }}
+                  >
+                    <MapPin className='mr-2 h-4 w-100' />
+                    Use Current Location
+                  </Button>
+
+                  <div className='relative w-full h-[35px] overflow-hidden rounded-md bg-sky-200 border-b-[4px] border-sky-400'>
+                    {/* Moving Mountains Background */}
+                    <motion.div
+                      className='absolute inset-0 flex'
+                      animate={{ x: ['0%', '-50%'] }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 20,
+                        ease: 'linear'
+                      }}
+                    >
+                      <div className='flex w-[600px]'>
+                        <svg width='600' height='50' viewBox='0 0 600 50'>
+                          <polygon points='0,50 60,20 120,50' fill='#94a3b8' />
+                          <polygon
+                            points='100,50 170,15 240,50'
+                            fill='#64748b'
+                          />
+                          <polygon
+                            points='220,50 290,18 360,50'
+                            fill='#94a3b8'
+                          />
+                          <polygon
+                            points='340,50 420,12 500,50'
+                            fill='#64748b'
+                          />
+                          <polygon
+                            points='480,50 550,20 600,50'
+                            fill='#94a3b8'
+                          />
+                        </svg>
+                      </div>
+                    </motion.div>
+                    {/* Moving Car */}
+                    <motion.div
+                      className='absolute bottom-0'
+                      animate={{ x: [0, 900] }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 5,
+                        ease: 'linear'
+                      }}
+                    >
+                      <Car className='h-5 w-5 text-blue-600' />
+                    </motion.div>
+                    <motion.div
+                      className='absolute bottom-0'
+                      animate={{ x: [0, 900] }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 4,
+                        ease: 'linear'
+                      }}
+                    >
+                      <Car className='h-5 w-5 text-blue-600' />
+                    </motion.div>
+
+                    {/* Moving Bike (slightly slower) */}
+                    <motion.div
+                      className='absolute bottom-0'
+                      animate={{ x: [0, 900] }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 6,
+                        ease: 'easeIn'
+                      }}
+                    >
+                      <Bike className='h-4 w-4 text-red-500' />
+                    </motion.div>
+                    <motion.div
+                      className='absolute bottom-0'
+                      animate={{ x: [0, 900] }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 8,
+                        ease: 'linear'
+                      }}
+                    >
+                      <Bike className='h-4 w-4 text-red-500' />
+                    </motion.div>
+                  </div>
+                </div>
 
                 {showPickupSuggestions && (
                   <motion.div
@@ -477,6 +643,7 @@ function BookingPageContent () {
                   <Input
                     id='dropoff'
                     placeholder='Enter drop-off location'
+                    autoComplete='off'
                     value={dropoff?.label || ''}
                     onChange={e =>
                       setDropoff({
@@ -707,152 +874,49 @@ function BookingPageContent () {
             </Card>
             <Button
               size='lg'
-              className='w-full h-12 text-base'
-              disabled={!pickup || !dropoff}
+              disabled={!pickup || !dropoff || findingDriver}
+              onClick={() => {
+                setFindingDriver(true)
+                bookridefunction()
+              }}
+              className='relative w-full h-12 text-base overflow-hidden'
             >
-              Confirm Booking
+              {/* Animated Background Slide */}
+              {findingDriver && (
+                <motion.div
+                  className='absolute inset-0 bg-white/20'
+                  initial={{ x: '-100%' }}
+                  animate={{ x: '100%' }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 1.2,
+                    ease: 'linear'
+                  }}
+                />
+              )}
+
+              <div className='relative flex items-center justify-center gap-2'>
+                {findingDriver ? (
+                  <>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 1,
+                        ease: 'linear'
+                      }}
+                    >
+                      <Loader2 className='w-5 h-5' />
+                    </motion.div>
+                    Finding Driver...
+                  </>
+                ) : (
+                  'Confirm Booking'
+                )}
+              </div>
             </Button>
           </div>
         </aside>
-
-        <main className='flex-1 relative'>
-          <div className='absolute inset-0 map-grid bg-card'>
-            <div className='absolute inset-0 flex items-center justify-center'>
-              <div className='relative w-full max-w-2xl px-8'>
-                <div className='absolute left-1/4 top-1/4'>
-                  <div className='relative'>
-                    <div className='absolute inset-0 rounded-full bg-success pulse-ring' />
-                    <div className='relative flex h-6 w-6 items-center justify-center rounded-full bg-success shadow-lg'>
-                      <div className='h-3 w-3 rounded-full bg-background' />
-                    </div>
-                  </div>
-                  <div className='mt-2 whitespace-nowrap rounded-md bg-card px-3 py-1.5 text-xs font-medium shadow-lg border border-border'>
-                    {pickup?.label || 'Pickup location'}
-                  </div>
-                </div>
-
-                <svg
-                  className='absolute left-1/4 top-1/4 h-48 w-[60%]'
-                  viewBox='0 0 300 150'
-                >
-                  <motion.path
-                    d='M 20 20 Q 150 100 280 20'
-                    fill='none'
-                    stroke='oklch(0.75 0.14 55)'
-                    strokeWidth='3'
-                    strokeDasharray='8 6'
-                    initial={{ pathLength: 0 }}
-                    animate={{ pathLength: 1 }}
-                    transition={{
-                      duration: 1.5,
-                      repeat: Number.POSITIVE_INFINITY,
-                      repeatType: 'loop',
-                      repeatDelay: 1
-                    }}
-                  />
-                </svg>
-
-                <div className='absolute right-1/4 top-1/4'>
-                  <div className='flex h-6 w-6 items-center justify-center rounded-full bg-primary shadow-lg'>
-                    <div className='h-3 w-3 rounded-full bg-primary-foreground' />
-                  </div>
-                  <div className='mt-2 whitespace-nowrap rounded-md bg-card px-3 py-1.5 text-xs font-medium shadow-lg border border-border'>
-                    {pickup?.label || 'Pickup location'}
-                  </div>
-                </div>
-
-                <motion.div
-                  className='absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
-                  animate={{ x: [-50, 50, -50] }}
-                  transition={{
-                    duration: 4,
-                    repeat: Number.POSITIVE_INFINITY,
-                    ease: 'easeInOut'
-                  }}
-                >
-                  <div className='flex h-10 w-10 items-center justify-center rounded-full bg-card border border-border shadow-xl'>
-                    <Car className='h-5 w-5 text-primary' />
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  className='absolute top-2/3 left-1/3'
-                  animate={{ y: [-10, 10, -10] }}
-                  transition={{
-                    duration: 3,
-                    repeat: Number.POSITIVE_INFINITY,
-                    ease: 'easeInOut',
-                    delay: 0.5
-                  }}
-                >
-                  <div className='flex h-8 w-8 items-center justify-center rounded-full bg-card border border-border shadow-lg opacity-60'>
-                    <Bike className='h-4 w-4 text-muted-foreground' />
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  className='absolute top-1/2 right-1/3'
-                  animate={{ y: [10, -10, 10] }}
-                  transition={{
-                    duration: 3.5,
-                    repeat: Number.POSITIVE_INFINITY,
-                    ease: 'easeInOut',
-                    delay: 1
-                  }}
-                >
-                  <div className='flex h-8 w-8 items-center justify-center rounded-full bg-card border border-border shadow-lg opacity-60'>
-                    <Car className='h-4 w-4 text-muted-foreground' />
-                  </div>
-                </motion.div>
-              </div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className='absolute bottom-8 left-8 right-8 lg:left-auto lg:right-8 lg:w-80'
-              >
-                <Card className='border-border bg-card/95 backdrop-blur-sm'>
-                  <CardContent className='p-4'>
-                    <div className='flex items-center gap-3'>
-                      <div className='flex h-12 w-12 items-center justify-center rounded-full bg-secondary'>
-                        <Clock className='h-6 w-6 text-primary' />
-                      </div>
-                      <div>
-                        <div className='text-sm text-muted-foreground'>
-                          Estimated arrival
-                        </div>
-                        <div className='text-lg font-semibold'>
-                          {selectedVehicleData.eta}
-                        </div>
-                      </div>
-                    </div>
-                    <div className='mt-3 flex items-center gap-2 rounded-lg bg-secondary/50 p-2'>
-                      <Star className='h-4 w-4 fill-warning text-warning' />
-                      <span className='text-sm'>4.8 average driver rating</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </div>
-          </div>
-
-          <div className='absolute left-4 right-4 top-4 lg:hidden'>
-            <Card className='border-border bg-card/95 backdrop-blur-sm'>
-              <CardContent className='p-4'>
-                <Button
-                  variant='outline'
-                  className='w-full justify-start bg-transparent'
-                  asChild
-                >
-                  <Link href='#booking-panel'>
-                    <MapPin className='mr-2 h-4 w-4' />
-                    Configure your ride
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </main>
       </div>
     </div>
   )
@@ -864,3 +928,49 @@ export default function BookingPage () {
     </Suspense>
   )
 }
+
+;<div className='relative w-[300px] h-[50px] overflow-hidden rounded-md bg-sky-200'>
+  {/* Moving Mountains Background */}
+  <motion.div
+    className='absolute inset-0 flex'
+    animate={{ x: ['0%', '-50%'] }}
+    transition={{ repeat: Infinity, duration: 20, ease: 'linear' }}
+  >
+    <div className='flex w-[600px]'>
+      <svg width='600' height='50' viewBox='0 0 600 50'>
+        <polygon points='0,50 60,20 120,50' fill='#94a3b8' />
+        <polygon points='100,50 170,15 240,50' fill='#64748b' />
+        <polygon points='220,50 290,18 360,50' fill='#94a3b8' />
+        <polygon points='340,50 420,12 500,50' fill='#64748b' />
+        <polygon points='480,50 550,20 600,50' fill='#94a3b8' />
+      </svg>
+    </div>
+  </motion.div>
+
+  {/* Road */}
+  <div className='absolute bottom-0 w-full h-[10px] bg-gray-800'>
+    <motion.div
+      className='absolute top-1/2 left-0 h-[2px] w-[40px] bg-yellow-400'
+      animate={{ x: [0, 300] }}
+      transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+    />
+  </div>
+
+  {/* Moving Car */}
+  <motion.div
+    className='absolute bottom-[10px]'
+    animate={{ x: [0, 300] }}
+    transition={{ repeat: Infinity, duration: 4, ease: 'linear' }}
+  >
+    <Car className='h-5 w-5 text-blue-600' />
+  </motion.div>
+
+  {/* Moving Bike (slightly slower) */}
+  <motion.div
+    className='absolute bottom-[10px]'
+    animate={{ x: [-100, 300] }}
+    transition={{ repeat: Infinity, duration: 6, ease: 'linear' }}
+  >
+    <Bike className='h-4 w-4 text-red-500' />
+  </motion.div>
+</div>

@@ -34,13 +34,6 @@ export default function RootLayout({
     <html lang="en">
       <body className="font-sans antialiased">
         <AppProvider>{children}</AppProvider>
-
-        {/* ✅ Google Maps Places API */}
-        <Script
-          src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY}&libraries=places`}
-          strategy="afterInteractive"
-        />
-
         <Analytics />
       </body>
     </html>
