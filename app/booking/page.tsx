@@ -70,7 +70,7 @@ const vehicleOptions: Record<ServiceType, VehicleOption[]> = {
   bike: [
     {
       id: 'standard',
-      name: 'Standard Bike',
+      name: 'bike',
       description: 'Quick solo ride',
       capacity: '1 person',
       price: '₹0',
@@ -230,16 +230,15 @@ function BookingPageContent () {
   )
 
   const router = useRouter()
-  //  useEffect(() => {
-  //   if (!ifuserexiist) {
-  //     router.replace("/login") // replace is better than push
-  //   } else {
-  //     setCheckingAuth(false)
-  //   }
-  // }, [ifuserexiist, router])
-  // if (checkingAuth) {
-  //   return null // ya spinner
-  // }
+useEffect(() => {
+  const token = Cookies.get("token") // apna cookie name yaha daal
+
+  if (!token) {
+    router.replace("/login")
+  } else {
+    setCheckingAuth(false)
+  }
+}, [router])
 
   // get current location
   async function handleGetLocation () {
@@ -404,7 +403,7 @@ function BookingPageContent () {
         }
       }
 
-      const token = Cookies.get("token")
+      const token = Cookies.get('token')
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/ride/book-ride`,
         bookingData,
@@ -426,7 +425,9 @@ function BookingPageContent () {
       setFindingDriver(false) // ✅ always stop loading
     }
   }
-
+  if (checkingAuth) {
+    return null // ya spinner
+  }
   return (
     <div className='min-h-screen bg-background'>
       <header className='glass fixed top-0 left-0 right-0 z-50 mx-4 mt-4 rounded-xl lg:mx-8'>

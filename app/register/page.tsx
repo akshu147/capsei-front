@@ -3,7 +3,7 @@
 import type React from 'react'
 import axios from 'axios'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
+import Cookies from 'js-cookie'
 import {
   Eye,
   EyeOff,
@@ -22,6 +23,7 @@ import {
   Loader2,
   CheckCircle2
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 const passwordRequirements = [
   { label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
@@ -43,6 +45,12 @@ export default function RegisterPage () {
     phone: '',
     password: ''
   })
+  const [errors, setErrors] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: ''
+  })
   const [otpSent, setOtpSent] = useState(false)
   const [otp, setOtp] = useState('')
   const [isOtpVerified, setIsOtpVerified] = useState(false)
@@ -51,33 +59,86 @@ export default function RegisterPage () {
   const [otpSuccess, setOtpSuccess] = useState(false)
   const [otpMessage, setOtpMessage] = useState('')
   const [otpSending, setOtpSending] = useState(false)
+  const [timer, setTimer] = useState(0)
+  const [canResend, setCanResend] = useState(true)
+   const [checkingAuth, setCheckingAuth] = useState(true)
+  const router = useRouter()
+  useEffect(() => {
+    const token = Cookies.get('driverToken')
 
+    if (token) {
+      router.replace('/driver')
+    } else {
+      setCheckingAuth(false)
+    }
+  }, [])
+  // 🚫 Jab tak check ho raha hai kuch bhi render mat karo
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.email) {
-      alert('Email required')
-      return
+    const newErrors = {
+      name: '',
+      email: '',
+      phone: '',
+      password: ''
     }
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Full name is required'
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required'
+    }
+
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Phone number is required'
+    }
+
+    if (!formData.password.trim()) {
+      newErrors.password = 'Password is required'
+    } else {
+      const isPasswordValid = passwordRequirements.every(req =>
+        req.test(formData.password)
+      )
+
+      if (!isPasswordValid) {
+        newErrors.password = 'Password does not meet requirements'
+      }
+    }
+
+    setErrors(newErrors)
+
+    // 🚫 Stop if any error exists
+    if (Object.values(newErrors).some(err => err !== '')) return
+
+    if (!canResend) return
 
     try {
       setOtpSending(true)
-      setOtpMessage('')
       setOtpError('')
+      setOtpMessage('')
 
       const response = await axios.post(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/driver/send-otp`,
-        {
-          email: formData.email
-        }
+        { email: formData.email.trim().toLowerCase() }
       )
 
-      if (response.data.success) {
+      if (response.status === 200 && response.data.success) {
         setOtpSent(true)
-        setOtpMessage(`OTP has been sent to ${formData.email}`)
+        setOtpMessage(`OTP sent successfully to ${formData.email}`)
+        setTimer(180)
+        setCanResend(false)
       }
     } catch (error: any) {
-      setOtpError(error.response?.data?.message || 'Failed to send OTP')
+      if (error.response?.status === 409) {
+        setErrors(prev => ({
+          ...prev,
+          email: 'A driver account with this email already exists. Kindly log in instead.'
+        }))
+      } else {
+        setOtpError('Something went wrong. Try again.')
+      }
     } finally {
       setOtpSending(false)
     }
@@ -89,7 +150,7 @@ export default function RegisterPage () {
       setOtpError('')
 
       const response = await axios.post(
-        'http://localhost:5000/api/auth/verify-otp',
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/driver/verify-otp`,
         {
           email: formData.email,
           otp: enteredOtp
@@ -123,6 +184,42 @@ export default function RegisterPage () {
     }
   }
 
+  useEffect(() => {
+    if (!otpMessage) return
+
+    const timeout = setTimeout(() => {
+      setOtpMessage('')
+    }, 3000) // 3 seconds
+
+    return () => clearTimeout(timeout)
+  }, [otpMessage])
+
+  const updateField = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+
+    setErrors(prev => {
+      const updatedErrors = { ...prev }
+
+      if (field === 'email' && value.trim()) {
+        updatedErrors.email = ''
+      }
+
+      if (field === 'name' && value.trim()) {
+        updatedErrors.name = ''
+      }
+
+      if (field === 'phone' && value.trim()) {
+        updatedErrors.phone = ''
+      }
+
+      if (field === 'password') {
+        const isValid = passwordRequirements.every(req => req.test(value))
+        if (isValid) updatedErrors.password = ''
+      }
+
+      return updatedErrors
+    })
+  }
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -139,21 +236,21 @@ export default function RegisterPage () {
       setIsLoading(true)
       console.log(formData, 'bhosiay')
 
-      // const response = await axios.post(
-      //   "http://localhost:5000/api/auth/register",
-      //   formData,
-      //   {
-      //     withCredentials: true, // 🔥 important for cookies
-      //     headers: {
-      //       "Content-Type": "application/json",
-      //     },
-      //   }
-      // )
+      const response = await axios.post(
+        "http://localhost:4000/api/driver/register-driver",
+        formData,
+        {
+          withCredentials: true, // 🔥 important for cookies
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      )
+      if(response.status === 201) {
+        router.replace("/driver")
+      }
 
-      // console.log("Success:", response.data)
-
-      // Redirect after success
-      // window.location.href = "/login"
+      // window.location.href = "/driver"
     } catch (error: any) {
       console.error('Error:', error.response?.data?.message || error.message)
       alert(error.response?.data?.message || 'Something went wrong')
@@ -162,9 +259,26 @@ export default function RegisterPage () {
     }
   }
 
-  const updateField = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
+  useEffect(() => {
+    if (timer <= 0) return
+
+    const interval = setInterval(() => {
+      setTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          setCanResend(true)
+          setOtpSent(false)
+          setOtp('')
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [timer])
+  if (checkingAuth) return null
+
 
   return (
     <div className='min-h-screen bg-background flex '>
@@ -176,10 +290,11 @@ export default function RegisterPage () {
           <Link href='/' className='flex items-center gap-2 mb-12'>
             <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-primary'>
               <span className='text-xl font-bold text-primary-foreground'>
-                M
+                C
               </span>
             </div>
-            <span className='text-2xl font-semibold'>MoveX</span>
+            <span className='text-2xl font-semibold'>Capsei</span>
+            <span className='font-bold text-primary text-2xl'>Captain</span>
           </Link>
 
           <motion.div
@@ -246,6 +361,7 @@ export default function RegisterPage () {
               <Label htmlFor='name'>Full Name</Label>
               <div className='relative'>
                 <User className='absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground' />
+
                 <Input
                   id='name'
                   type='text'
@@ -256,6 +372,9 @@ export default function RegisterPage () {
                   required
                 />
               </div>
+              {errors.name && (
+                <p className='text-xs text-red-500 mt-1'>{errors.name}</p>
+              )}
             </div>
 
             <div className='space-y-2'>
@@ -273,6 +392,9 @@ export default function RegisterPage () {
                   disabled={otpSent}
                 />
               </div>
+              {errors.email && (
+                <p className='text-xs text-red-500 mt-1'>{errors.email}</p>
+              )}
             </div>
 
             <div className='space-y-2'>
@@ -289,6 +411,9 @@ export default function RegisterPage () {
                   required
                 />
               </div>
+              {errors.phone && (
+                <p className='text-xs text-red-500 mt-1'>{errors.phone}</p>
+              )}
             </div>
 
             <div className='space-y-2'>
@@ -304,6 +429,7 @@ export default function RegisterPage () {
                   className='h-11 pl-10 pr-10 bg-input'
                   required
                 />
+
                 <button
                   type='button'
                   onClick={() => setShowPassword(!showPassword)}
@@ -316,6 +442,9 @@ export default function RegisterPage () {
                   )}
                 </button>
               </div>
+              {errors.password && (
+                <p className='text-xs text-red-500 mt-1'>{errors.password}</p>
+              )}
               {formData.password && (
                 <div className='mt-2 grid grid-cols-2 gap-1'>
                   {passwordRequirements.map(req => (
@@ -351,25 +480,28 @@ export default function RegisterPage () {
                 </Link>
               </Label>
             </div>
+            {/* 🔥 SEND / RESEND BUTTON - ALWAYS VISIBLE */}
+            <Button
+              type='button'
+              onClick={handleSendOtp}
+              className='w-full h-11'
+              disabled={otpSending || (otpSent && timer > 0)}
+            >
+              {otpSending ? (
+                <Loader2 className='h-4 w-4 animate-spin' />
+              ) : !otpSent ? (
+                'Send OTP'
+              ) : timer > 0 ? (
+                `Resend OTP in ${timer}s`
+              ) : (
+                'Resend OTP'
+              )}
+            </Button>
 
-            {!otpSent ? (
-              <Button
-                type='button'
-                onClick={handleSendOtp}
-                className='w-full h-11'
-                disabled={otpSending}
-              >
-                {otpSending ? (
-                  <Loader2 className='h-4 w-4 animate-spin' />
-                ) : (
-                  'Send OTP'
-                )}
-              </Button>
-              
-            ) : (
+            {/* 🔥 OTP INPUT SHOW AFTER FIRST SEND */}
+            {otpSent && (
               <>
-                {/* OTP Input */}
-                <div className='space-y-2'>
+                <div className='space-y-2 mt-4'>
                   <Label htmlFor='otp'>Enter OTP</Label>
                   <Input
                     id='otp'
@@ -377,7 +509,7 @@ export default function RegisterPage () {
                     placeholder='Enter 6 digit OTP'
                     value={otp}
                     onChange={e => handleOtpChange(e.target.value)}
-                    className='h-11 bg-input'
+                    className='h-11 bg-input border-[1px] border-green-100'
                     maxLength={6}
                   />
 
@@ -388,13 +520,19 @@ export default function RegisterPage () {
                   )}
 
                   {otpSuccess && (
-                    <p className='text-sm text-green-500'>OTP Verified ✅</p>
+                    <p className='text-sm text-green-500'>
+                      OTP Verified ✅{' '}
+                      <span className='text-white text-[10px]'>
+                        You won’t be able to use this OTP after it expires.
+                      </span>
+                    </p>
                   )}
 
                   {otpError && (
                     <p className='text-sm text-red-500'>{otpError}</p>
                   )}
                 </div>
+
                 {otpSuccess && (
                   <Button type='submit' className='w-full h-11 mt-3'>
                     Next
@@ -402,18 +540,18 @@ export default function RegisterPage () {
                 )}
               </>
             )}
-               {otpMessage && (
+
+            {otpMessage && (
               <p className='text-sm text-green-500 text-center mt-2'>
                 {otpMessage}
               </p>
             )}
 
-            {/* {otpError && (
+            {otpError && (
               <p className='text-sm text-red-500 text-center mt-2'>
                 {otpError}
               </p>
             )}
-          */}
           </form>
 
           <div className='relative'>

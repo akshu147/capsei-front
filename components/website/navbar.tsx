@@ -219,7 +219,7 @@ useEffect(() => {
             </button>
             <Link
               href='/driver'
-              className='px-4 py-2 text-sm text-muted-foreground hover:text-foreground'
+              className='px-4 py-2 text-sm text-primary hover:text-foreground'
             >
               Drive with Us
             </Link>

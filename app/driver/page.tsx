@@ -41,6 +41,7 @@ import {
   TrendingUp
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import axios from 'axios'
 
 const vehicleTypes = [
   { id: 'bike', name: 'Bike', icon: Bike },
@@ -53,45 +54,13 @@ const vehicleTypes = [
   { id: 'water_tanker', name: 'Water Tanker', icon: Truck },
   { id: 'ambulance', name: 'Ambulance', icon: Truck },
   { id: 'bus', name: 'Bus', icon: Truck }
-];
+]
 
 const documents = [
-  {
-    id: 'license',
-    name: 'Driving License',
-    status: 'verified',
-    description: 'Valid driving license'
-  },
-  {
-    id: 'registration',
-    name: 'Vehicle Registration',
-    status: 'pending',
-    description: 'RC document'
-  },
-  {
-    id: 'insurance',
-    name: 'Vehicle Insurance',
-    status: 'required',
-    description: 'Valid insurance policy'
-  },
-  {
-    id: 'photo',
-    name: 'Profile Photo',
-    status: 'verified',
-    description: 'Clear face photo'
-  },
-  {
-    id: 'aadhar',
-    name: 'ID Proof',
-    status: 'pending',
-    description: 'Government ID'
-  },
-  {
-    id: 'permit',
-    name: 'Commercial Permit',
-    status: 'required',
-    description: 'If applicable'
-  }
+  { id: 'license', name: 'Driving License' },
+  { id: 'registrationCertificate', name: 'Vehicle Registration' },
+  { id: 'photo', name: 'Profile Photo' },
+  { id: 'AadharCard', name: 'Aadhar' }
 ]
 
 const benefits = [
@@ -121,14 +90,30 @@ export default function DriverPage () {
   const [activeTab, setActiveTab] = useState('register')
   const [step, setStep] = useState(1)
   const [vehicleType, setVehicleType] = useState('')
-   const [authorized, setAuthorized] = useState(false)
-   const router = useRouter()
+  const [authorized, setAuthorized] = useState(false)
+  const router = useRouter()
 
   const documentProgress = documents.filter(d => d.status === 'verified').length
   const totalDocuments = documents.length
   const progressPercentage = (documentProgress / totalDocuments) * 100
 
-   useEffect(() => {
+  const [formdata, setformdata] = useState({
+    dateofbirth: '',
+    vehicleType: '',
+    vehicleNumber: '',
+    vehicleModel: '',
+    licenseNumber: '',
+    aadharNumber: '',
+    documents: {
+      license: null,
+      registrationCertificate: null,
+      AadharCard: null,
+      photo: null
+    }
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
     const token = Cookies.get('driverToken')
 
     if (!token) {
@@ -137,7 +122,116 @@ export default function DriverPage () {
       setAuthorized(true)
     }
   }, [router])
-  if (!authorized) return null 
+
+  const handleFileChange = (e: any, type: string) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    setformdata(prev => ({
+      ...prev,
+      documents: {
+        ...prev.documents,
+        [type]: file
+      }
+    }))
+  }
+  const handleRemoveFile = (type: string) => {
+    setformdata(prev => ({
+      ...prev,
+      documents: {
+        ...prev.documents,
+        [type]: null
+      }
+    }))
+  }
+
+  const registerdrver2ndstep = async () => {
+    try {
+      setLoading(true)
+      setError('')
+
+      if (
+        !formdata.dateofbirth ||
+        !formdata.vehicleType ||
+        !formdata.vehicleNumber ||
+        !formdata.licenseNumber ||
+        !formdata.aadharNumber
+      ) {
+        setError('Please fill all required fields')
+        setLoading(false)
+        return
+      }
+
+      if (!formdata.documents.license || !formdata.documents.AadharCard) {
+        setError('License and Aadhaar documents are required')
+        setLoading(false)
+        return
+      }
+
+      const today = new Date()
+      const dob = new Date(formdata.dateofbirth)
+
+      let age = today.getFullYear() - dob.getFullYear()
+      const m = today.getMonth() - dob.getMonth()
+
+      if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+        age--
+      }
+
+      // if (age < 18) {
+      //   setError('You must be at least 18 years old')
+      //   setLoading(false)
+      //   return
+      // }
+
+      const data = new FormData()
+
+      Object.entries({
+        dateofbirth: formdata.dateofbirth,
+        vehicleType: formdata.vehicleType,
+        vehicleNumber: formdata.vehicleNumber,
+        vehicleModel: formdata.vehicleModel,
+        licenseNumber: formdata.licenseNumber,
+        aadharNumber: formdata.aadharNumber
+      }).forEach(([key, value]) => data.append(key, value as string))
+
+      data.append('license', formdata.documents.license)
+      data.append('AadharCard', formdata.documents.AadharCard)
+
+      if (formdata.documents.registrationCertificate) {
+        data.append(
+          'registrationCertificate',
+          formdata.documents.registrationCertificate
+        )
+      }
+
+      if (formdata.documents.photo) {
+        data.append('photo', formdata.documents.photo)
+      }
+      const token = Cookies.get('driverToken')
+      const res = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/driver/register-driver-2ndstep`,
+        data,
+       {
+          headers: {
+            Authorization: `Bearer ${token}` // <-- ye backend ke authMiddleware ke liye zaruri hai
+          }
+        }
+      )
+      if(res.status === 200) {
+        router.replace('/driver-deshboard')
+      }
+    } catch (err) {
+      console.log('ERROR FULL:', err?.response || err.message || err)
+      setError(err?.response?.data?.message || 'Something went wrong')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // console.log(formdata, 'bhosiya')
+
+  if (!authorized) return null
 
   return (
     <div className='min-h-screen bg-background'>
@@ -159,10 +253,9 @@ export default function DriverPage () {
             </Link>
           </div>
           <div className='flex items-center gap-3'>
-            <Button variant='ghost' size='sm' asChild>
-              <Link href='/register'>Register</Link>
-            </Button>
-            <Button size='sm'>Apply Now</Button>
+            Lorem ipsum, dolor sit amet consectetur adipisicing elit.
+            Laboriosam, mollitia? Ad, esse! Ea labore, commodi quos inventore
+            eligendi nesciunt mollitia!
           </div>
         </div>
       </header>
@@ -185,7 +278,8 @@ export default function DriverPage () {
                 </h1>
                 <p className='mt-4 max-w-2xl text-lg text-muted-foreground'>
                   Earn money on your schedule. Join thousands of drivers making
-                  a great income with MoveX.
+                  a great income with{' '}
+                  <span className='text-primary'>Capsei</span>.
                 </p>
               </motion.div>
 
@@ -203,7 +297,7 @@ export default function DriverPage () {
               >
                 {benefits.map((benefit, index) => (
                   <Card key={benefit.title} className='border-border'>
-                    <CardContent className='p-6'>
+                    <CardContent className='px-5 py-2'>
                       <div className='mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10'>
                         <benefit.icon className='h-6 w-6 text-primary' />
                       </div>
@@ -220,7 +314,7 @@ export default function DriverPage () {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className='mx-auto max-w-2xl'
+                className='mx-auto'
               >
                 <Card className='border-border'>
                   <CardHeader>
@@ -244,9 +338,14 @@ export default function DriverPage () {
                             {vehicleTypes.map(type => (
                               <button
                                 key={type.id}
-                                onClick={() => setVehicleType(type.id)}
+                                onClick={() =>
+                                  setformdata(prev => ({
+                                    ...prev,
+                                    vehicleType: type.id
+                                  }))
+                                }
                                 className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors ${
-                                  vehicleType === type.id
+                                  formdata.vehicleType === type.id
                                     ? 'border-primary bg-primary/5'
                                     : 'border-border hover:border-muted-foreground/50'
                                 }`}
@@ -264,21 +363,100 @@ export default function DriverPage () {
                             ))}
                           </div>
                         </div>
-                        <div className='space-y-2'>
-                          <Label htmlFor='vehicleNumber'>Vehicle Number</Label>
-                          <Input
-                            id='vehicleNumber'
-                            placeholder='ABC 1234'
-                            className='bg-input'
-                          />
-                        </div>
-                        <div className='space-y-2'>
-                          <Label htmlFor='vehicleModel'>Vehicle Model</Label>
-                          <Input
-                            id='vehicleModel'
-                            placeholder='e.g., Honda Civic 2022'
-                            className='bg-input'
-                          />
+
+                        <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
+                          {/* DOB */}
+                          <div className='space-y-2'>
+                            <Label htmlFor='dob'>Date Of Birth</Label>
+                            <Input
+                              id='dob'
+                              className='bg-input'
+                              type='date'
+                              value={formdata.dateofbirth}
+                              onChange={e =>
+                                setformdata(prev => ({
+                                  ...prev,
+                                  dateofbirth: e.target.value
+                                }))
+                              }
+                            />
+                          </div>
+
+                          {/* Vehicle Model */}
+                          <div className='space-y-2'>
+                            <Label htmlFor='vehicleModel'>Vehicle Model</Label>
+                            <Input
+                              id='vehicleModel'
+                              placeholder='e.g., Honda Civic 2022'
+                              className='bg-input'
+                              type='text'
+                              value={formdata.vehicleModel}
+                              onChange={e =>
+                                setformdata(prev => ({
+                                  ...prev,
+                                  vehicleModel: e.target.value
+                                }))
+                              }
+                            />
+                          </div>
+
+                          {/* Vehicle Number */}
+                          <div className='space-y-2'>
+                            <Label htmlFor='vehicleNumber'>
+                              Vehicle Number
+                            </Label>
+                            <Input
+                              id='vehicleNumber'
+                              placeholder='RJ14 AB 1234'
+                              className='bg-input'
+                              type='text'
+                              value={formdata.vehicleNumber}
+                              onChange={e =>
+                                setformdata(prev => ({
+                                  ...prev,
+                                  vehicleNumber: e.target.value
+                                }))
+                              }
+                            />
+                          </div>
+
+                          {/* License Number */}
+                          <div className='space-y-2'>
+                            <Label htmlFor='licenseNumber'>
+                              License Number
+                            </Label>
+                            <Input
+                              id='licenseNumber'
+                              placeholder='DL number'
+                              className='bg-input'
+                              type='text'
+                              value={formdata.licenseNumber}
+                              onChange={e =>
+                                setformdata(prev => ({
+                                  ...prev,
+                                  licenseNumber: e.target.value
+                                }))
+                              }
+                            />
+                          </div>
+
+                          {/* Aadhaar */}
+                          <div className='space-y-2'>
+                            <Label htmlFor='aadharNumber'>Aadhaar Number</Label>
+                            <Input
+                              id='aadharNumber'
+                              placeholder='12 digit Aadhaar'
+                              className='bg-input'
+                              type='text'
+                              value={formdata.aadharNumber}
+                              onChange={e =>
+                                setformdata(prev => ({
+                                  ...prev,
+                                  aadharNumber: e.target.value
+                                }))
+                              }
+                            />
+                          </div>
                         </div>
                       </div>
                     )}
@@ -293,32 +471,77 @@ export default function DriverPage () {
                           </p>
                         </div>
                         <div className='space-y-3'>
-                          {documents.slice(0, 4).map(doc => (
-                            <div
-                              key={doc.id}
-                              className='flex items-center justify-between rounded-lg border border-border bg-card p-4'
-                            >
-                              <div className='flex items-center gap-3'>
-                                <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-secondary'>
-                                  <FileText className='h-5 w-5 text-muted-foreground' />
-                                </div>
-                                <div>
-                                  <div className='font-medium'>{doc.name}</div>
-                                  <div className='text-xs text-muted-foreground'>
-                                    {doc.description}
+                          {documents.slice(0, 4).map(doc => {
+                            const file = formdata.documents[doc.id]
+
+                            return (
+                              <div
+                                key={doc.id}
+                                className='flex items-center justify-between rounded-lg border border-border bg-card p-4'
+                              >
+                                <div className='flex items-center gap-3'>
+                                  <div className='flex h-10 w-10 items-center justify-center rounded-lg bg-secondary'>
+                                    <FileText className='h-5 w-5 text-muted-foreground' />
+                                  </div>
+
+                                  <div>
+                                    <div className='font-medium'>
+                                      {doc.name}
+                                    </div>
+                                    <div className='text-xs text-muted-foreground'>
+                                      {doc.description}
+                                    </div>
+
+                                    {/* ✅ File name show */}
+                                    {file && (
+                                      <p className='text-xs text-green-500 mt-1'>
+                                        {file.name}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
+
+                                {/* RIGHT SIDE */}
+                                <div className='flex gap-2 items-center'>
+                                  {/* ✅ Upload button (only if no file) */}
+                                  {!file && (
+                                    <label className='cursor-pointer'>
+                                      <Button
+                                        variant='outline'
+                                        size='sm'
+                                        className='gap-2 bg-transparent'
+                                        asChild
+                                      >
+                                        <span>
+                                          <Upload className='h-4 w-4' />
+                                          Upload
+                                        </span>
+                                      </Button>
+
+                                      <input
+                                        type='file'
+                                        className='hidden'
+                                        onChange={e =>
+                                          handleFileChange(e, doc.id)
+                                        }
+                                      />
+                                    </label>
+                                  )}
+
+                                  {/* ❌ Remove button */}
+                                  {file && (
+                                    <Button
+                                      variant='destructive'
+                                      size='sm'
+                                      onClick={() => handleRemoveFile(doc.id)}
+                                    >
+                                      Remove
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
-                              <Button
-                                variant='outline'
-                                size='sm'
-                                className='gap-2 bg-transparent'
-                              >
-                                <Upload className='h-4 w-4' />
-                                Upload
-                              </Button>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       </div>
                     )}
@@ -343,168 +566,20 @@ export default function DriverPage () {
                       ) : (
                         <Button
                           className='flex-1'
-                          onClick={() => {
-                            setActiveTab('dashboard')
-                          }}
+                          disabled={loading}
+                          onClick={registerdrver2ndstep}
                         >
-                          Submit Application
+                          {loading ? 'Submitting...' : 'Submit Application'}
                         </Button>
                       )}
                     </div>
+                    {error && (
+                      <div className='text-red-500 text-sm font-medium'>
+                        {error}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
-              </motion.div>
-            </TabsContent>
-
-            <TabsContent value='dashboard' className='space-y-6'>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className='grid gap-6 lg:grid-cols-3'
-              >
-                <div className='lg:col-span-2 space-y-6'>
-                  <Card className='border-border'>
-                    <CardHeader>
-                      <div className='flex items-center justify-between'>
-                        <div>
-                          <CardTitle>Application Status</CardTitle>
-                          <CardDescription>
-                            Track your onboarding progress
-                          </CardDescription>
-                        </div>
-                        <Badge className='bg-warning/10 text-warning hover:bg-warning/20'>
-                          Under Review
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className='mb-4'>
-                        <div className='flex items-center justify-between text-sm'>
-                          <span className='text-muted-foreground'>
-                            {documentProgress} of {totalDocuments} documents
-                            verified
-                          </span>
-                          <span className='font-medium'>
-                            {Math.round(progressPercentage)}%
-                          </span>
-                        </div>
-                        <Progress value={progressPercentage} className='mt-2' />
-                      </div>
-
-                      <div className='space-y-3'>
-                        {documents.map(doc => (
-                          <div
-                            key={doc.id}
-                            className='flex items-center justify-between rounded-lg border border-border bg-card p-3'
-                          >
-                            <div className='flex items-center gap-3'>
-                              <div className='flex h-9 w-9 items-center justify-center rounded-lg bg-secondary'>
-                                <FileText className='h-4 w-4 text-muted-foreground' />
-                              </div>
-                              <div>
-                                <div className='text-sm font-medium'>
-                                  {doc.name}
-                                </div>
-                                <div className='text-xs text-muted-foreground'>
-                                  {doc.description}
-                                </div>
-                              </div>
-                            </div>
-                            {doc.status === 'verified' ? (
-                              <Badge className='bg-success/10 text-success hover:bg-success/20'>
-                                <CheckCircle2 className='mr-1 h-3 w-3' />
-                                Verified
-                              </Badge>
-                            ) : doc.status === 'pending' ? (
-                              <Badge
-                                variant='secondary'
-                                className='bg-warning/10 text-warning hover:bg-warning/20'
-                              >
-                                <Clock className='mr-1 h-3 w-3' />
-                                Pending
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant='secondary'
-                                className='bg-destructive/10 text-destructive hover:bg-destructive/20'
-                              >
-                                <AlertCircle className='mr-1 h-3 w-3' />
-                                Required
-                              </Badge>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className='space-y-6'>
-                  <Card className='border-border'>
-                    <CardHeader className='pb-3'>
-                      <CardTitle className='text-lg'>Driver Profile</CardTitle>
-                    </CardHeader>
-                    <CardContent className='space-y-4'>
-                      <div className='flex items-center gap-4'>
-                        <div className='flex h-16 w-16 items-center justify-center rounded-full bg-secondary'>
-                          <User className='h-8 w-8 text-muted-foreground' />
-                        </div>
-                        <div>
-                          <div className='font-semibold'>John Doe</div>
-                          <div className='text-sm text-muted-foreground'>
-                            Sedan Driver
-                          </div>
-                          <div className='mt-1 flex items-center gap-1 text-sm'>
-                            <Star className='h-4 w-4 fill-warning text-warning' />
-                            <span>4.8 Rating</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className='space-y-2 pt-2 border-t border-border'>
-                        <div className='flex justify-between text-sm'>
-                          <span className='text-muted-foreground'>Vehicle</span>
-                          <span>Honda Civic 2022</span>
-                        </div>
-                        <div className='flex justify-between text-sm'>
-                          <span className='text-muted-foreground'>License</span>
-                          <span>NYC-12345</span>
-                        </div>
-                        <div className='flex justify-between text-sm'>
-                          <span className='text-muted-foreground'>
-                            Member Since
-                          </span>
-                          <span>Jan 2024</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className='border-border'>
-                    <CardHeader className='pb-3'>
-                      <CardTitle className='text-lg'>Quick Stats</CardTitle>
-                    </CardHeader>
-                    <CardContent className='space-y-3'>
-                      <div className='flex items-center justify-between rounded-lg bg-secondary/50 p-3'>
-                        <span className='text-sm text-muted-foreground'>
-                          Total Rides
-                        </span>
-                        <span className='font-semibold'>0</span>
-                      </div>
-                      <div className='flex items-center justify-between rounded-lg bg-secondary/50 p-3'>
-                        <span className='text-sm text-muted-foreground'>
-                          Total Earnings
-                        </span>
-                        <span className='font-semibold'>$0.00</span>
-                      </div>
-                      <div className='flex items-center justify-between rounded-lg bg-secondary/50 p-3'>
-                        <span className='text-sm text-muted-foreground'>
-                          Online Hours
-                        </span>
-                        <span className='font-semibold'>0 hrs</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
               </motion.div>
             </TabsContent>
           </Tabs>
