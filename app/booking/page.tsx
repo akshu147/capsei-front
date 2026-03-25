@@ -43,7 +43,7 @@ import axios from 'axios'
 import { useLoadScript } from '@react-google-maps/api'
 import { Duru_Sans } from 'next/font/google'
 
-type ServiceType = 'bike' | 'car' | 'loading' | 'parcel'
+type ServiceType = 'bike' | 'car' | 'loading' | 'parcel' | 'auto'
 
 interface VehicleOption {
   id: string
@@ -127,30 +127,21 @@ const vehicleOptions: Record<ServiceType, VehicleOption[]> = {
   ],
   loading: [
     {
-      id: 'pickup',
-      name: 'Pickup Truck',
-      description: 'Small loads',
-      capacity: '500 kg',
+      id: '3wheeler',
+      name: '3 Wheeler Loader',
+      description: 'Small goods / short distance',
+      capacity: '300-500 kg',
       price: '₹0',
-      eta: '10 min',
+      eta: '8 min',
       icon: <Truck className='h-5 w-5' />
     },
     {
-      id: 'tempo',
-      name: 'Tempo',
-      description: 'Medium cargo',
-      capacity: '1000 kg',
+      id: '4wheeler',
+      name: '4 Wheeler Loader',
+      description: 'Heavy goods / long distance',
+      capacity: '800-1500 kg',
       price: '₹0',
       eta: '12 min',
-      icon: <Truck className='h-5 w-5' />
-    },
-    {
-      id: 'truck',
-      name: 'Full Truck',
-      description: 'Heavy cargo',
-      capacity: '2000 kg',
-      price: '₹0',
-      eta: '15 min',
       icon: <Truck className='h-5 w-5' />
     }
   ],
@@ -181,6 +172,26 @@ const vehicleOptions: Record<ServiceType, VehicleOption[]> = {
       price: '₹0',
       eta: 'Custom',
       icon: <Clock className='h-5 w-5' />
+    }
+  ],
+  auto: [
+    {
+      id: 'auto',
+      name: 'Auto Rickshaw',
+      description: 'Affordable 3-seater ride',
+      capacity: '3 seats',
+      price: '₹0',
+      eta: '3 min',
+      icon: <Car className='h-5 w-5' /> // ya alag icon use kar sakta hai
+    },
+    {
+      id: 'e-auto',
+      name: 'E-Rickshaw',
+      description: 'Eco-friendly ride',
+      capacity: '3-4 seats',
+      price: '₹0',
+      eta: '5 min',
+      icon: <Car className='h-5 w-5' />
     }
   ]
 }
@@ -230,15 +241,15 @@ function BookingPageContent () {
   )
 
   const router = useRouter()
-useEffect(() => {
-  const token = Cookies.get("token") // apna cookie name yaha daal
+  useEffect(() => {
+    const token = Cookies.get('token') // apna cookie name yaha daal
 
-  if (!token) {
-    router.replace("/login")
-  } else {
-    setCheckingAuth(false)
-  }
-}, [router])
+    if (!token) {
+      router.replace('/auth')
+    } else {
+      setCheckingAuth(false)
+    }
+  }, [router])
 
   // get current location
   async function handleGetLocation () {
@@ -425,6 +436,10 @@ useEffect(() => {
       setFindingDriver(false) // ✅ always stop loading
     }
   }
+  useEffect(() => {
+    settheCurrentVehicles(vehicleOptions[service])
+    setSelectedVehicle(vehicleOptions[service][0]?.id || '')
+  }, [service])
   if (checkingAuth) {
     return null // ya spinner
   }
@@ -704,13 +719,20 @@ useEffect(() => {
               value={service}
               onValueChange={v => setService(v as ServiceType)}
             >
-              <TabsList className='grid w-full grid-cols-4 bg-secondary'>
+              <TabsList className='grid w-full grid-cols-5 bg-secondary'>
                 <TabsTrigger
                   value='bike'
                   className='gap-1.5 data-[state=active]:border-primary'
                 >
                   <Bike className='h-4 w-4' />
                   <span className='hidden sm:inline'>Bike</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value='auto'
+                  className='gap-1.5 data-[state=active]:border-primary'
+                >
+                  <Car className='h-4 w-4' />
+                  <span className='hidden sm:inline'>Auto</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value='car'
@@ -726,7 +748,10 @@ useEffect(() => {
                   <Truck className='h-4 w-4' />
                   <span className='hidden sm:inline'>Loading</span>
                 </TabsTrigger>
-                <TabsTrigger value='parcel'>
+                <TabsTrigger
+                  value='parcel'
+                  className='gap-1.5 data-[state=active]:border-primary'
+                >
                   <Package className='h-4 w-4' />
                   <span className='hidden sm:inline'>Parcel</span>
                 </TabsTrigger>

@@ -18,16 +18,7 @@ export function HeroSection () {
     fireConfetti()
   }
   const bookride = () => {
-    try {
-      if (ifuserexiist) {
-        router.push('/booking')
-      }
-      else {
-        router.push('/login')
-      }
-    } catch (err) {
-      console.log('something wern wrong', err instanceof Error ? err.message : String(err))
-    }
+    router.push("/booking")
   }
 
   return (

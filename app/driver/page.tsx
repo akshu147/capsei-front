@@ -44,16 +44,23 @@ import { useRouter } from 'next/navigation'
 import axios from 'axios'
 
 const vehicleTypes = [
-  { id: 'bike', name: 'Bike', icon: Bike },
-  { id: 'auto', name: 'Auto Rickshaw', icon: Truck },
-  { id: 'car', name: 'Car', icon: Car },
-  { id: 'van', name: 'Van', icon: Truck },
-  { id: 'pickup', name: 'Pickup / Light Truck', icon: Truck },
-  { id: 'truck', name: 'Truck', icon: Truck },
-  { id: 'tow_truck', name: 'Tow Truck', icon: Truck },
-  { id: 'water_tanker', name: 'Water Tanker', icon: Truck },
-  { id: 'ambulance', name: 'Ambulance', icon: Truck },
-  { id: 'bus', name: 'Bus', icon: Truck }
+  // BIKE
+  { id: 'bike', name: 'Bike', category: 'bike', icon: Bike },
+  { id: 'premium_bike', name: 'Premium Bike', category: 'bike', icon: Bike },
+
+  // AUTO
+  { id: 'auto', name: 'Auto Rickshaw', category: 'auto', icon: Truck },
+  { id: 'e_auto', name: 'E-Rickshaw', category: 'auto', icon: Truck },
+
+  // CAR
+  { id: 'citycar', name: 'City Car', category: 'car', icon: Car },
+  { id: 'sedan', name: 'Sedan', category: 'car', icon: Car },
+  { id: 'suv', name: 'SUV', category: 'car', icon: Car },
+  { id: 'premium', name: 'Premium Car', category: 'car', icon: Car },
+
+  // LOADING
+  { id: '3wheeler', name: '3 Wheeler Loader', category: 'loading', icon: Truck },
+  { id: '4wheeler', name: '4 Wheeler Loader', category: 'loading', icon: Truck }
 ]
 
 const documents = [
@@ -212,13 +219,13 @@ export default function DriverPage () {
       const res = await axios.post(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/driver/register-driver-2ndstep`,
         data,
-       {
+        {
           headers: {
             Authorization: `Bearer ${token}` // <-- ye backend ke authMiddleware ke liye zaruri hai
           }
         }
       )
-      if(res.status === 200) {
+      if (res.status === 200) {
         router.replace('/driver-deshboard')
       }
     } catch (err) {
