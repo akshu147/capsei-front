@@ -225,6 +225,11 @@ function BookingPageContent () {
   )
   const [dropsuggestion, setdropsuggestion] = useState<PlaceSuggestion[]>([])
   // const [onlysuggestion, setsuggestion] = useState([])
+  const [pickupcondinate, setpickupcondinate] = useState<{
+    latitude: number | null
+    longitude: number | null
+  } | null>(null)
+
   const [pickup, setPickup] = useState<{
     label: string
     place_id: string
@@ -254,29 +259,22 @@ function BookingPageContent () {
   // get current location
   async function handleGetLocation () {
     try {
-      // 1️⃣ Browser se GPS lo
+      setPickup({
+        label: 'your current location'
+      })
       const loc = (await getExactCurrentLocation()) as {
         lat: number
         lng: number
       }
-
-      // 2️⃣ Backend ko bhejo
-      const res = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/places/reverse-geocode`,
-        { lat: loc.lat, lng: loc.lng },
-        { withCredentials: true }
-      )
-
-      // 3️⃣ Backend se address lo
-      setPickup({
-        label: res.data.address,
-        place_id: 'current_location'
+      setpickupcondinate({
+        latitude: loc.lat,
+        longitude: loc.lng
       })
     } catch (err) {
       console.error('Location Error:', err)
     }
   }
-
+  // console.log(pickupcondinate, "hosaia")
   useEffect(() => {
     if (!pickup?.label || pickup.label.length < 3) {
       setpickupsuggestion([])
@@ -315,14 +313,17 @@ function BookingPageContent () {
   }, [dropoff?.label])
 
   const getprices = async () => {
-    if (!pickup?.place_id || !dropoff?.place_id) return
+    if ((!pickup?.place_id && !pickupcondinate?.latitude) || !dropoff?.place_id)
+      return
 
     try {
       setLoadingFare(true)
       const detail = {
         pick_placeId: pickup.place_id,
         drop_PlaceId: dropoff.place_id,
-        serviceType: service
+        serviceType: service,
+        pickuplat: pickupcondinate?.latitude,
+        pickuplng: pickupcondinate?.longitude
       }
       // f
 
@@ -619,7 +620,7 @@ function BookingPageContent () {
                     animate={{ opacity: 1, y: 0 }}
                     className='absolute left-0 right-0 top-full z-10 mt-2 rounded-lg border border-border bg-popover p-2 shadow-xl'
                   >
-                    <div className='mb-2 px-2 text-xs font-medium text-muted-foreground'>
+                    <div className='mb-2 px-2 text-xs font-medium text-white'>
                       Saved Places
                     </div>
                     {pickupsuggestion.map((place, index) => (

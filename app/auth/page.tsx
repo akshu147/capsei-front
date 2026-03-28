@@ -16,6 +16,7 @@ import { ToastContainer, toast } from 'react-toastify'
 import { setUserExist } from '@/store/userloginslice/userloginslice'
 import { FcGoogle } from 'react-icons/fc'
 
+
 import {
   Eye,
   EyeOff,
@@ -169,6 +170,7 @@ export default function LoginPage () {
         theme='dark'
       />
       <div className='hidden lg:flex lg:w-1/2 relative bg-card items-center justify-center p-12'>
+      
         <div className='absolute inset-0 map-grid opacity-30' />
         <div className='absolute top-1/4 left-1/4 h-100 w-100 rounded-full bg-primary/5 blur-[100px]' />
 

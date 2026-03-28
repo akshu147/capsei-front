@@ -109,6 +109,7 @@ useEffect(() => {
   // 4️⃣ URL clean karo (remove ?token=...)
   if (urlToken) {
     window.history.replaceState({}, "", "/");
+    router.push("/booking")
   }
 }, []);
 
