@@ -69,17 +69,8 @@ interface PlaceSuggestion {
 const vehicleOptions: Record<ServiceType, VehicleOption[]> = {
   bike: [
     {
-      id: 'standard',
+      id: "Bike",
       name: 'bike',
-      description: 'Quick solo ride',
-      capacity: '1 person',
-      price: '₹0',
-      eta: '2 min',
-      icon: <Bike className='h-5 w-5' />
-    },
-    {
-      id: 'premium',
-      name: 'Premium Bike',
       description: 'Helmets included',
       capacity: '1 person',
       price: '₹0',
@@ -373,7 +364,7 @@ function BookingPageContent () {
   const bookridefunction = async () => {
     if (findingDriver) return // double click prevent
 
-    if (!pickup?.place_id || !dropoff?.place_id) {
+    if ((!pickup?.place_id && !pickupcondinate?.latitude) || !dropoff?.place_id){
       alert('Pickup & Drop-off locations required')
       return
     }
@@ -868,33 +859,53 @@ function BookingPageContent () {
                   if (!selected) return <div>Loading fare...</div>
 
                   return (
-                    <div className='space-y-2'>
-                      <div className='flex justify-between text-sm'>
-                        <span className='text-muted-foreground'>Base Fare</span>
-                        <span>₹{selected.baseFare}</span>
-                      </div>
+              <div className="flex flex-col lg:flex-row w-full h-full gap-4">
+  
+  {/* LEFT SIDE (Fare Details) */}
+  <div className="w-full lg:w-[40%] bg-background p-4 rounded-2xl shadow">
+    
+    <div className="space-y-2">
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Base Fare</span>
+        <span>₹{selected.baseFare}</span>
+      </div>
 
-                      <div className='flex justify-between text-sm'>
-                        <span className='text-muted-foreground'>
-                          Distance ({fareData?.distance_km ?? 0} km)
-                        </span>
-                        <span>₹{selected.distanceFare}</span>
-                      </div>
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">
+          Distance ({fareData?.distance_km ?? 0} km)
+        </span>
+        <span>₹{selected.distanceFare}</span>
+      </div>
 
-                      <div className='flex justify-between text-sm'>
-                        <span className='text-muted-foreground'>
-                          Platform Fee
-                        </span>
-                        <span>₹{selected.platformFee}</span>
-                      </div>
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">
+          Platform Fee
+        </span>
+        <span>₹{selected.platformFee}</span>
+      </div>
 
-                      <div className='my-2 border-t border-border' />
+      <div className="my-2 border-t border-border" />
 
-                      <div className='flex justify-between font-semibold'>
-                        <span>Total Estimate</span>
-                        <span className='text-primary'>₹{selected.total}</span>
-                      </div>
-                    </div>
+      <div className="flex justify-between font-semibold">
+        <span>Total Estimate</span>
+        <span className="text-primary">₹{selected.total}</span>
+      </div>
+    </div>
+
+  </div>
+
+  {/* RIGHT SIDE (Map) */}
+  <div className="w-full lg:w-[60%] h-[300px] lg:h-auto rounded-2xl overflow-hidden">
+    
+    {/* Yaha map component lagana */}
+    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+      Map Here
+    </div>
+
+  </div>
+
+</div>
+                 
                   )
                 })()}
               </CardContent>

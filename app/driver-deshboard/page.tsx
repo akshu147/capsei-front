@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 import Cookies from 'js-cookie'
+import { jwtDecode } from "jwt-decode"
 import {
   AreaChart,
   Area,
@@ -221,102 +222,101 @@ export default function DriverDashboard () {
     }
   }
 
- useEffect(() => {
-  let watchId
+  useEffect(() => {
+    let watchId
 
-  let lastLat = null
-  let lastLng = null
-  let lastTime = 0
+    let lastLat = null
+    let lastLng = null
+    let lastTime = 0
 
-  const DISTANCE_THRESHOLD = 0.0001
-  const TIME_THRESHOLD = 5000
+    const DISTANCE_THRESHOLD = 0.0001
+    const TIME_THRESHOLD = 5000
 
-  if (isOnline && socket) {
-    watchId = navigator.geolocation.watchPosition(
-      async pos => {
-        const { latitude, longitude, accuracy } = pos.coords
+    if (isOnline && socket) {
+      watchId = navigator.geolocation.watchPosition(
+        async pos => {
+          const { latitude, longitude, accuracy } = pos.coords
 
-        if (accuracy > 200) return
+          if (accuracy > 200) return
 
-        const now = Date.now()
-        let moved = false
+          const now = Date.now()
+          let moved = false
 
-        if (lastLat !== null && lastLng !== null) {
-          const latDiff = Math.abs(latitude - lastLat)
-          const lngDiff = Math.abs(longitude - lastLng)
+          if (lastLat !== null && lastLng !== null) {
+            const latDiff = Math.abs(latitude - lastLat)
+            const lngDiff = Math.abs(longitude - lastLng)
 
-          if (latDiff > DISTANCE_THRESHOLD || lngDiff > DISTANCE_THRESHOLD) {
+            if (latDiff > DISTANCE_THRESHOLD || lngDiff > DISTANCE_THRESHOLD) {
+              moved = true
+            }
+          } else {
             moved = true
           }
-        } else {
-          moved = true
-        }
 
-        const timePassed = now - lastTime > TIME_THRESHOLD
-        if (!moved && !timePassed) return
+          const timePassed = now - lastTime > TIME_THRESHOLD
+          if (!moved && !timePassed) return
 
-        lastLat = latitude
-        lastLng = longitude
-        lastTime = now
+          lastLat = latitude
+          lastLng = longitude
+          lastTime = now
 
-        try {
-          const token = Cookies.get('driverToken')
+          try {
+            const token = Cookies.get('driverToken')
+            const decoded = jwtDecode(token)
+            console.log(decoded, "gandmara")
 
-          if (!token) {
-            console.log('❌ Token not found')
-            return
-          }
-
-          // ✅ API update
-          await axios.post(
-            `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/driver/update-driver-location`,
-            { lat: latitude, lng: longitude },
-            {
-              headers: { Authorization: `Bearer ${token}` }
+            if (!token) {
+              console.log('❌ Token not found')
+              return
             }
-          )
 
-          // ✅ SOCKET EMIT
-          socket.emit('driverLocation', {
-            driverId: token,
-            lat: latitude,
-            lng: longitude
-          })
+            // ✅ API update
+            await axios.post(
+              `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/driver/update-driver-location`,
+              { lat: latitude, lng: longitude },
+              {
+                headers: { Authorization: `Bearer ${token}` }
+              }
+            )
 
-          console.log('📍 Sent location:', latitude, longitude)
-        } catch (err) {
-          console.log(err)
+            // ✅ SOCKET EMIT
+            socket.emit('driverLocation', {
+              driverId: 232432423, 
+              lat: latitude,
+              lng: longitude,
+              heading: pos.coords.heading || 0,
+              speed: pos.coords.speed || 0,
+              isOnline: true,
+              vehicleType: 'bike',
+              timestamp: Date.now(),
+            })
+
+            console.log('📍 Sent location:', latitude, longitude)
+          } catch (err) {
+            console.log('Error sending location:', err.message)
+          }
+        },
+        err => console.log('GPS Error:', err),
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 5000
         }
-      },
-      err => console.log('GPS Error:', err),
-      {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 5000
-      }
-    )
-  }
+      )
+    }
 
-  return () => {
-    if (watchId) navigator.geolocation.clearWatch(watchId)
-  }
-}, [isOnline, socket])
+    return () => {
+      if (watchId) navigator.geolocation.clearWatch(watchId)
+    }
+  }, [isOnline, socket])
 
-  // useEffect(() => {
-  //   const s = io(process.env.NEXT_PUBLIC_API_BASE_URL)
-  //   setSocket(s)
+  useEffect(() => {
+    const s = io(process.env.NEXT_PUBLIC_API_BASE_URL)
+    setSocket(s)
 
-  //   return () => s.disconnect()
-  // }, [])
-  // if (socket) {
-
-  
-  //   socket.emit('driverLocation', {
-  //     driverId: token,
-  //     lat: latitude,
-  //     lng: longitude
-  //   })
-  // }
+    return () => s.disconnect()
+  }, [])
+  console.log(isOnline)
 
   return (
     <div className='flex h-screen bg-slate-950 text-white overflow-hidden'>

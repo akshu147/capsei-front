@@ -45,8 +45,7 @@ import axios from 'axios'
 
 const vehicleTypes = [
   // BIKE
-  { id: 'bike', name: 'Bike', category: 'bike', icon: Bike },
-  { id: 'premium_bike', name: 'Premium Bike', category: 'bike', icon: Bike },
+  { id: 'bike', name: 'Bike ', category: 'bike', icon: Bike },
 
   // AUTO
   { id: 'auto', name: 'Auto Rickshaw', category: 'auto', icon: Truck },
@@ -353,7 +352,7 @@ export default function DriverPage () {
                                 }
                                 className={`flex items-center gap-3 rounded-lg border p-4 text-left transition-colors ${
                                   formdata.vehicleType === type.id
-                                    ? 'border-primary bg-primary/5'
+                                    ? 'border-primary bg-primary/20'
                                     : 'border-border hover:border-muted-foreground/50'
                                 }`}
                               >

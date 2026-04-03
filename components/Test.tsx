@@ -6,7 +6,7 @@ import { GoogleMap, Marker, useLoadScript } from '@react-google-maps/api'
 
 const containerStyle = {
   width: '100%',
-  height: '100vh' // 🔥 yaha typo tha (100v lefrontendkobi kr deh)
+  height: '100%' // 🔥 yaha typo tha (100v lefrontendkobi kr deh)
 }
 
 export default function LiveMapPage() {
